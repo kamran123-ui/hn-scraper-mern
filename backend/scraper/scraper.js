@@ -17,7 +17,7 @@ const scrapeHackerNews = async () => {
       'User-Agent':
         'Mozilla/5.0 (compatible; HNScraper/1.0; +https://github.com)',
     },
-    timeout: 15_000,
+    timeout: 30_000,
   });
 
   const $       = cheerio.load(html);
