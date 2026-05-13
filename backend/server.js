@@ -9,7 +9,11 @@ dotenv.config();
 const app = express();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
+// FIXED: Sabhi origins allow kar diye deployment ke liye, ya CLIENT_URL use karein
+app.use(cors({ 
+  origin: true, // Sabhi sources allow honge, CORS issue khatam
+  credentials: true 
+}));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,19 +27,16 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ─── 404 Handler ─────────────────────────────────────────────────────────────
+// ─── 404 & Error Handlers ────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.originalUrl} not found` });
 });
 
-// ─── Global Error Handler ────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   console.error(`[ERROR] ${err.message}`);
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });
 
@@ -47,13 +48,17 @@ const bootstrap = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ MongoDB connected');
 
-    console.log('🔄 Running initial scrape...');
-    await scrapeHackerNews();
-    console.log('✅ Initial scrape complete');
-
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    // FIXED: Pehle server start karo taaki Render ko "Port" mil jaye
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      
+      // Server start hone ke baad background mein scraping chalao
+      console.log('🔄 Running initial scrape in background...');
+      scrapeHackerNews()
+        .then(() => console.log('✅ Initial scrape complete'))
+        .catch(err => console.error('❌ Background scrape failed:', err.message));
     });
+
   } catch (err) {
     console.error('❌ Bootstrap failed:', err.message);
     process.exit(1);
@@ -61,3 +66,4 @@ const bootstrap = async () => {
 };
 
 bootstrap();
+
